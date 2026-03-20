@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>INBABY 茵寶貝｜全功能管理系統</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --main-pink: #f9a8c0;
+      --dark-pink: #f06292;
+      --light-pink: #fce4ec;
+      --soft-pink: #fdf0f4;
+      --text-dark: #3d2b35;
+      --text-gray: #7a6370;
+      --border-pink: #f8bbd0;
+    }
+    body { background: #fff5f8; font-family: "Microsoft JhengHei", sans-serif; font-size: 14px; color: var(--text-dark); min-height: 100vh; }
+    h4, h5 { color: var(--dark-pink); font-weight: 700; }
+    #loginCard { background: #fff; border: none; border-radius: 24px; box-shadow: 0 8px 40px rgba(240,98,146,0.12); padding: 2.5rem; margin-top: 5vh; max-width: 450px; margin-left: auto; margin-right: auto; }
+    .btn-pink { background: linear-gradient(135deg, var(--main-pink), var(--dark-pink)); color: #fff !important; border: none; border-radius: 50px; font-weight: 600; padding: 8px 20px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(240,98,146,0.3); }
+    .btn-pink:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(240,98,146,0.4); }
+    .hide { display: none !important; }
+    .nav-tabs { border: none; background: #fff; border-radius: 50px; padding: 4px; display: inline-flex; box-shadow: 0 2px 12px rgba(240,98,146,0.08); margin-bottom: 1.5rem; }
+    .nav-tabs .nav-link { border: none !important; border-radius: 50px !important; padding: 8px 22px; color: var(--text-gray); cursor: pointer; }
+    .nav-tabs .nav-link.active { background: var(--dark-pink) !important; color: #fff !important; font-weight: 700; }
+    .card { border: 1px solid var(--border-pink) !important; border-radius: 18px !important; box-shadow: 0 4px 20px rgba(240,98,146,0.06) !important; background: #fff; margin-bottom: 20px; }
+    table.table thead th { background: linear-gradient(135deg, var(--main-pink), var(--dark-pink)) !important; color: #fff !important; font-weight: 600; padding: 12px 10px !important; font-size: 13px; border: none; }
+    .admin-badge { background: #ff9800; color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-left: 5px; vertical-align: middle; }
+    .comment-card { border-left: 4px solid var(--main-pink); margin-bottom: 10px; padding: 10px; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .comment-meta { font-size: 12px; color: #888; margin-bottom: 5px; }
+    .comment-author { font-weight: bold; color: var(--text-dark); }
+    .comment-text { font-size: 14px; margin-bottom: 8px; }
+    .badge-status { font-size: 11px; padding: 3px 8px; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <div class="container py-4">
+    <!-- 登入介面 -->
+    <div id="loginCard" class="card">
+      <h3 class="text-center mb-4" style="color:var(--dark-pink)">INBABY 茵寶貝系統登入</h3>
+      <div id="loginForm">
+        <div class="mb-3">
+          <label class="form-label">電子郵件 Email</label>
+          <input type="email" id="loginEmail" class="form-control" placeholder="請輸入您的 Email">
+        </div>
+        <button class="btn btn-pink w-100 py-2" onclick="sendOtp()">取得登入連結</button>
+      </div>
+    </div>
+
+    <!-- 主應用介面 -->
+    <div id="app" class="hide">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h4 class="mb-0">INBABY 茵寶貝管理系統 <span id="adminBadge" class="admin-badge hide">管理員</span></h4>
+          <span id="who" class="text-muted small"></span>
+        </div>
+        <button class="btn btn-outline-danger btn-sm" onclick="logout()">安全登出</button>
+      </div>
+
+      <ul class="nav nav-tabs">
+        <li class="nav-item" id="nav-my-orders"><a class="nav-link active" onclick="switchTab('orders')">我的訂單</a></li>
+        <!-- 管理員專屬選單 -->
+        <li class="nav-item id-admin-only hide" id="nav-admin-fb"><a class="nav-link" onclick="switchTab('admin-fb')">社團訂單審核</a></li>
+        <li class="nav-item id-admin-only hide" id="nav-admin-orders"><a class="nav-link" onclick="switchTab('admin-orders')">訂單管理</a></li>
+        <li class="nav-item id-admin-only hide" id="nav-admin-members"><a class="nav-link" onclick="switchTab('admin-members')">會員管理</a></li>
+        <li class="nav-item"><a class="nav-link" onclick="switchTab('profile')">個人帳戶</a></li>
+      </ul>
+
+      <div id="tabContent">
+        <!-- 會員：我的訂單 -->
+        <div id="section-orders">
+          <div class="card p-3">
+            <h5>我的訂單記錄</h5>
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead>
+                  <tr><th>單號</th><th>狀態</th><th>金額</th><th>內容</th><th>日期</th></tr>
+                </thead>
+                <tbody id="ordersBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 管理員：社團訂單審核 (匯入區) -->
+        <div id="section-admin-fb" class="hide">
+          <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5>社團留言審核區 (FB 匯入)</h5>
+              <button class="btn btn-sm btn-pink" onclick="loadFbComments()">重新整理留言</button>
+            </div>
+            <div id="fbCommentsList">
+              <!-- 留言卡片將顯示在此 -->
+              <p class="text-center text-muted p-4">正在載入社團留言...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 管理員：所有訂單管理 -->
+        <div id="section-admin-orders" class="hide">
+          <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5>正式訂單總覽</h5>
+              <button class="btn btn-sm btn-pink" onclick="loadAdminOrders()">重新整理</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead>
+                  <tr><th>單號</th><th>會員</th><th>金額</th><th>狀態</th><th>操作</th></tr>
+                </thead>
+                <tbody id="adminOrdersBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 管理員：會員管理 -->
+        <div id="section-admin-members" class="hide">
+          <div class="card p-3">
+            <h5>會員清單</h5>
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead>
+                  <tr><th>會員 ID</th><th>FB 名稱</th><th>Email</th><th>餘額</th></tr>
+                </thead>
+                <tbody id="adminMembersBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- 個人帳戶區塊 -->
+        <div id="section-profile" class="hide">
+          <div class="card p-4">
+            <h5>帳戶資訊</h5>
+            <div class="row g-4">
+              <div class="col-md-6">
+                <label class="form-label text-muted small">綁定的 FB 名稱</label>
+                <div class="input-group">
+                  <input type="text" id="fbNameInput" class="form-control">
+                  <button class="btn btn-pink" onclick="updateProfile()">儲存修改</button>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="text-muted small d-block">帳戶餘額 (購物金)</label>
+                <h4 id="profileBalance" class="text-success fw-bold">$0</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 轉單 Modal -->
+  <div class="modal fade" id="convertModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">將留言轉為正式訂單</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="modalCommentId">
+          <div class="mb-3">
+            <label class="form-label">FB 名稱</label>
+            <input type="text" id="modalFbName" class="form-control" readonly>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">留言內容</label>
+            <textarea id="modalCommentText" class="form-control" readonly rows="2"></textarea>
+          </div>
+          <hr>
+          <div class="mb-3">
+            <label class="form-label">產品名稱</label>
+            <input type="text" id="modalProdName" class="form-control" placeholder="例如：正韓童裝 T-shirt">
+          </div>
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">單價</label>
+              <input type="number" id="modalPrice" class="form-control" value="0">
+            </div>
+            <div class="col-6 mb-3">
+              <label class="form-label">數量</label>
+              <input type="number" id="modalQty" class="form-control" value="1">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-pink" onclick="confirmConvert()">確認轉單</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const SUPABASE_URL = 'https://dcbpjxjdwdvftpiighyw.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_DbPSGp8fOxtt30VDFXtlvw_LzexqDTa';
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const ADMIN_EMAIL = 'yy68129@gmail.com';
+
+    let convertModal;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      convertModal = new bootstrap.Modal(document.getElementById('convertModal'));
+    });
+
+    async function sendOtp() {
+      const email = document.getElementById('loginEmail').value;
+      if (!email) { alert('請輸入 Email！'); return; }
+      const { error } = await supabaseClient.auth.signInWithOtp({
+        email: email,
+        options: { emailRedirectTo: window.location.href }
+      });
+      if (error) alert('發送失敗: ' + error.message);
+      else alert('登入連結已發送至您的信箱！');
+    }
+
+    async function logout() { await supabaseClient.auth.signOut(); window.location.reload(); }
+
+    function switchTab(tab) {
+      const sections = ['orders', 'admin-fb', 'admin-orders', 'admin-members', 'profile'];
+      sections.forEach(s => document.getElementById('section-' + s).classList.toggle('hide', s !== tab));
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('onclick').includes(`'${tab}'`)) link.classList.add('active');
+      });
+      if (tab === 'admin-fb') loadFbComments();
+      if (tab === 'admin-orders') loadAdminOrders();
+      if (tab === 'admin-members') loadAdminMembers();
+    }
+
+    async function loadData(user) {
+      document.getElementById('who').innerText = user.email;
+      const isAdmin = user.email === ADMIN_EMAIL;
+      if (isAdmin) {
+        document.getElementById('adminBadge').classList.remove('hide');
+        document.querySelectorAll('.id-admin-only').forEach(el => el.classList.remove('hide'));
+        switchTab('admin-fb');
+      } else {
+        switchTab('orders');
+      }
+      loadMyOrders(user.email);
+    }
+
+    async function loadMyOrders(email) {
+      const { data: profile } = await supabaseClient.from('members').select('*').eq('email', email).maybeSingle();
+      if (profile) {
+        document.getElementById('fbNameInput').value = profile.fb_name || '';
+        document.getElementById('profileBalance').innerText = '$' + (profile.account_balance || 0);
+        const { data: orders } = await supabaseClient.from('orders').select('*').eq('member_id', profile.member_id).order('created_at', { ascending: false });
+        const body = document.getElementById('ordersBody');
+        body.innerHTML = orders?.map(o => `
+          <tr>
+            <td>${o.order_id}</td>
+            <td><span class="badge bg-info">${o.order_status}</span></td>
+            <td>$${o.total_amount}</td>
+            <td>${o.comment_message || '-'}</td>
+            <td>${new Date(o.created_at).toLocaleDateString()}</td>
+          </tr>
+        `).join('') || '<tr><td colspan="5" class="text-center">暫無訂單</td></tr>';
+      }
+    }
+
+    // 管理員：載入 FB 留言 (待審核區)
+    async function loadFbComments() {
+      const list = document.getElementById('fbCommentsList');
+      list.innerHTML = '<p class="text-center p-4">載入中...</p>';
+      
+      // 我們從 orders 表中抓取 status 為 '待處理' 且有 comment_message 的資料
+      const { data, error } = await supabaseClient
+        .from('orders')
+        .select('*, members(fb_name)')
+        .eq('order_status', '待處理')
+        .order('created_at', { ascending: false });
+
+      if (error || !data || data.length === 0) {
+        list.innerHTML = '<p class="text-center text-muted p-4">目前沒有待審核的社團留言。</p>';
+        return;
+      }
+
+      list.innerHTML = data.map(c => `
+        <div class="comment-card">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <div class="comment-meta">
+                <span class="comment-author">${c.members?.fb_name || '未知會員'}</span> 
+                於 ${new Date(c.created_at).toLocaleString()} 留言
+              </div>
+              <div class="comment-text">${c.comment_message}</div>
+            </div>
+            <button class="btn btn-sm btn-pink" onclick="openConvertModal(${c.order_id}, '${c.members?.fb_name}', '${c.comment_message.replace(/'/g, "\\'")}')">轉為正式訂單</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openConvertModal(id, name, text) {
+      document.getElementById('modalCommentId').value = id;
+      document.getElementById('modalFbName').value = name;
+      document.getElementById('modalCommentText').value = text;
+      document.getElementById('modalProdName').value = "";
+      document.getElementById('modalPrice').value = 0;
+      document.getElementById('modalQty').value = 1;
+      convertModal.show();
+    }
+
+    async function confirmConvert() {
+      const id = document.getElementById('modalCommentId').value;
+      const prodName = document.getElementById('modalProdName').value;
+      const price = parseInt(document.getElementById('modalPrice').value);
+      const qty = parseInt(document.getElementById('modalQty').value);
+      
+      if (!prodName) { alert("請輸入產品名稱"); return; }
+
+      const total = price * qty;
+      
+      // 更新訂單狀態與金額
+      const { error } = await supabaseClient
+        .from('orders')
+        .update({
+          order_status: '已確認',
+          total_amount: total,
+          comment_message: `[${prodName}] ${qty}件 - 原留言: ${document.getElementById('modalCommentText').value}`
+        })
+        .eq('order_id', id);
+
+      if (error) {
+        alert("轉單失敗: " + error.message);
+      } else {
+        alert("轉單成功！");
+        convertModal.hide();
+        loadFbComments();
+      }
+    }
+
+    async function loadAdminOrders() {
+      const { data: orders } = await supabaseClient.from('orders').select('*, members(fb_name)').neq('order_status', '待處理').order('created_at', { ascending: false });
+      const body = document.getElementById('adminOrdersBody');
+      body.innerHTML = orders?.map(o => `
+        <tr>
+          <td>${o.order_id}</td>
+          <td>${o.members?.fb_name || '未知'}</td>
+          <td>$${o.total_amount}</td>
+          <td><span class="badge bg-secondary">${o.order_status}</span></td>
+          <td>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteOrder(${o.order_id})">刪除</button>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="5" class="text-center">目前沒有正式訂單</td></tr>';
+    }
+
+    async function loadAdminMembers() {
+      const { data: members } = await supabaseClient.from('members').select('*').order('member_id', { ascending: true });
+      const body = document.getElementById('adminMembersBody');
+      body.innerHTML = members?.map(m => `
+        <tr><td>${m.member_id}</td><td>${m.fb_name}</td><td>${m.email || '-'}</td><td>$${m.account_balance || 0}</td></tr>
+      `).join('') || '<tr><td colspan="4" class="text-center">暫無會員</td></tr>';
+    }
+
+    async function deleteOrder(id) {
+      if (confirm('確定刪除？')) {
+        await supabaseClient.from('orders').delete().eq('order_id', id);
+        loadAdminOrders();
+      }
+    }
+
+    async function updateProfile() {
+      const fbName = document.getElementById('fbNameInput').value;
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { error } = await supabaseClient.from('members').update({ fb_name: fbName }).eq('email', user.email);
+      if (error) alert('更新失敗'); else alert('更新成功');
+    }
+
+    supabaseClient.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        document.getElementById('loginCard').classList.add('hide');
+        document.getElementById('app').classList.remove('hide');
+        loadData(session.user);
+      } else {
+        document.getElementById('loginCard').classList.remove('hide');
+        document.getElementById('app').classList.add('hide');
+      }
+    });
+  </script>
+</body>
+</html>

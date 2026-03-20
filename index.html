@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>DEBUG TEST - INBABY</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>極簡診斷測試版 (v1.0)</h1>
+    <p>請點擊下方按鈕測試連線：</p>
+    <button id="testBtn" style="padding: 20px; font-size: 20px;">點我測試登入連線</button>
+    <div id="log" style="margin-top: 20px; color: blue; font-family: monospace;"></div>
+
+    <script>
+        const SB_URL = "https://dcbpjxjdwdvftpiighyw.supabase.co";
+        const SB_KEY = "sb_publishable_DbPSGp8fOxtt30VDFxtlvw_LzexqXG8y5W7uKz-K99Ym_1G-000";
+
+        window.onload = function() {
+            alert("網頁已載入，準備測試！");
+            const btn = document.getElementById('testBtn');
+            const log = document.getElementById('log');
+
+            btn.onclick = async function() {
+                alert("按鈕已被點擊！正在發送請求...");
+                log.innerText = "正在連線至 Supabase...";
+
+                try {
+                    const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+                    const { error } = await supabaseClient.auth.signInWithOtp({
+                        email: "yy68129@gmail.com",
+                        options: { emailRedirectTo: window.location.href }
+                    });
+
+                    if (error) {
+                        alert("失敗！錯誤訊息：" + error.message);
+                        log.innerText = "錯誤：" + error.message;
+                    } else {
+                        alert("成功！登入連結已發送至 yy68129@gmail.com");
+                        log.innerText = "成功發送！請檢查信箱。";
+                    }
+                } catch (err) {
+                    alert("嚴重錯誤：" + err.message);
+                    log.innerText = "系統崩潰：" + err.message;
+                }
+            };
+        };
+    </script>
+</body>
+</html>
